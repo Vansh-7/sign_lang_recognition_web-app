@@ -6,21 +6,10 @@ import tensorflow as tf
 import av
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 
-class FixedInputLayer(tf.keras.layers.InputLayer):
-    def __init__(self, batch_shape=None, **kwargs):
-        # Keras 3 uses 'batch_shape', but Keras 2 expects 'batch_input_shape'
-        if batch_shape is not None:
-            kwargs['batch_input_shape'] = batch_shape
-        super().__init__(**kwargs)
-
 # 1. Load Model & Setup MediaPipe
 @st.cache_resource
 def load_model():
-    # We pass the custom layer to handle the version mismatch
-    return tf.keras.models.load_model(
-        'asl_mediapipe_mlp_model.h5', 
-        custom_objects={'InputLayer': FixedInputLayer}
-    )
+    return tf.keras.models.load_model('asl_mediapipe_mlp_model.h5')
 
 model = load_model()
 
