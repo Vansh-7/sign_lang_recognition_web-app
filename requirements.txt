@@ -3,10 +3,11 @@ streamlit-webrtc
 opencv-python-headless
 mediapipe==0.10.9
 tensorflow-cpu==2.14.0
-keras<3
+keras==2.14.0
 pandas
 scikit-learn
 matplotlib
-numpy<2
+numpy==1.26.4
+protobuf==3.20.3
 av
 pyttsx3
