@@ -1,11 +1,12 @@
 streamlit
 streamlit-webrtc
 opencv-python-headless
-mediapipe
-tensorflow-cpu
+mediapipe==0.10.9
+tensorflow-cpu==2.12.0
 pandas
 scikit-learn
 matplotlib
-numpy
+protobuf==3.20.3
+numpy<1.24
 av
 pyttsx3
