@@ -6,6 +6,6 @@ tensorflow-cpu
 pandas
 scikit-learn
 matplotlib
-numpy
+numpy<2
 av
 pyttsx3
