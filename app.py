@@ -8,43 +8,32 @@ import time
 from gtts import gTTS
 from io import BytesIO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
-
-# --- MONKEY PATCH: FIX STREAMLIT-WEBRTC SHUTDOWN CRASH ---
-# This block fixes the "NoneType object has no attribute is_alive" error
 import streamlit_webrtc.shutdown
 import threading
 
-# Save the original stop function
 _original_stop = streamlit_webrtc.shutdown.SessionShutdownObserver.stop
 
 def _safe_stop(self):
-    # Check if the thread exists before checking if it's alive
     if getattr(self, "_polling_thread", None) is None:
         return
-    # Call the original function if safe
     _original_stop(self)
 
-# Apply the patch
 streamlit_webrtc.shutdown.SessionShutdownObserver.stop = _safe_stop
 # ---------------------------------------------------------
 
 # --- 1. Setup & Configuration ---
 st.set_page_config(page_title="ASL Recognition Pro", layout="wide")
 
-# Initialize Session State
 if "asl_text" not in st.session_state:
     st.session_state["asl_text"] = ""
 
-# Robust STUN server configuration
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
         {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:stun2.l.google.com:19302"]},
     ]}
 )
 
-# Load Model
 @st.cache_resource
 def load_model():
     try:
@@ -55,12 +44,10 @@ def load_model():
 
 model = load_model()
 
-# Classes
 CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
            'del', 'space']
 
-# MediaPipe
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(
@@ -76,7 +63,9 @@ class ASLProcessor(VideoProcessorBase):
         self.sentence = ""
         self.last_prediction = None
         self.consecutive_frames = 0
-        self.stability_threshold = 15 
+        # Default values (will be updated by sliders)
+        self.stability_threshold = 5 
+        self.cooldown_duration = 8
         self.cooldown = 0
         self.prediction_text = ""
 
@@ -114,6 +103,7 @@ class ASLProcessor(VideoProcessorBase):
                                 else:
                                     if current_sign == self.last_prediction:
                                         self.consecutive_frames += 1
+                                        # Use dynamic threshold from sliders
                                         if self.consecutive_frames >= self.stability_threshold:
                                             if current_sign == 'space':
                                                 self.sentence += " "
@@ -123,7 +113,7 @@ class ASLProcessor(VideoProcessorBase):
                                                 self.sentence += current_sign
                                             
                                             self.consecutive_frames = 0
-                                            self.cooldown = 20 
+                                            self.cooldown = self.cooldown_duration
                                     else:
                                         self.last_prediction = current_sign
                                         self.consecutive_frames = 0
@@ -151,6 +141,12 @@ col1, col2 = st.columns([0.65, 0.35])
 
 with col1:
     st.subheader("Webcam Feed")
+    
+    # Performance Tuners
+    with st.expander("⚙️ Sensitivity Settings"):
+        stability = st.slider("Detection Speed (Frames to hold)", 3, 30, 5, help="Lower = Faster detection, Higher = More accurate")
+        cooldown = st.slider("Cooldown (Frames wait)", 5, 30, 8, help="Wait time between letters")
+
     webrtc_ctx = webrtc_streamer(
         key="asl-detection",
         video_processor_factory=ASLProcessor,
@@ -159,6 +155,11 @@ with col1:
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
     )
+
+    # Update processor settings dynamically
+    if webrtc_ctx.video_processor:
+        webrtc_ctx.video_processor.stability_threshold = stability
+        webrtc_ctx.video_processor.cooldown_duration = cooldown
 
 with col2:
     st.subheader("ASL Reference")
@@ -200,12 +201,10 @@ with c3:
 
 # --- 4. Background Sync Loop ---
 if webrtc_ctx.state.playing:
-    # Loop to sync video processor sentence with UI
-    # We use a simple loop that breaks if the state changes
     while webrtc_ctx.state.playing:
         if webrtc_ctx.video_processor:
             live_sentence = webrtc_ctx.video_processor.sentence
             if live_sentence != st.session_state["asl_text"]:
                 st.session_state["asl_text"] = live_sentence
                 st.rerun()
-        time.sleep(0.2) # Update every 200ms to be gentle on the browser
+        time.sleep(0.1) # Check every 100ms
