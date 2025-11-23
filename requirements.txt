@@ -1,12 +1,12 @@
 streamlit
-streamlit-webrtc
+streamlit-webrtc>=0.47.0
 opencv-python-headless
 mediapipe==0.10.14
 tensorflow-cpu==2.16.1
 keras==3.3.3
 numpy==1.26.4
-pandas
 scikit-learn
 matplotlib
+pandas
 av
 gTTS
