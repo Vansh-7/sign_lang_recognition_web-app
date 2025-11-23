@@ -10,6 +10,25 @@ from io import BytesIO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
 import streamlit_webrtc.shutdown
 import threading
+import asyncio
+
+try:
+    loop = asyncio.get_event_loop()
+    
+    def custom_exception_handler(loop, context):
+        exception = context.get('exception')
+        # Swallow the specific "NoneType" errors that happen on disconnect
+        if isinstance(exception, AttributeError) and (
+            "'NoneType' object has no attribute 'sendto'" in str(exception) or 
+            "'NoneType' object has no attribute 'call_exception_handler'" in str(exception)
+        ):
+            return 
+        # Otherwise, handle normally
+        loop.default_exception_handler(context)
+
+    loop.set_exception_handler(custom_exception_handler)
+except Exception:
+    pass
 
 _original_stop = streamlit_webrtc.shutdown.SessionShutdownObserver.stop
 
