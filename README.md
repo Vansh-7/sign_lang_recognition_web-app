@@ -1,7 +1,3 @@
-Here is a comprehensive and professional `README.md` file tailored specifically to the code found in `xyz/app.py` and `xyz/requirements.txt`.
-
------
-
 # 🖐️ Real-Time ASL Recognition Pro
 
 > A powerful real-time American Sign Language (ASL) detection system built with **Streamlit**, **MediaPipe**, and **TensorFlow**. This application translates hand gestures into text and speech instantly using a lightweight neural network.
