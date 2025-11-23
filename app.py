@@ -16,9 +16,15 @@ st.set_page_config(page_title="ASL Recognition Pro", layout="wide")
 if "asl_text" not in st.session_state:
     st.session_state["asl_text"] = ""
 
-# Google STUN server to fix connection issues on Cloud
+# Robust STUN server configuration to fix Cloud connection errors
 RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+    {"iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {"urls": ["stun:stun2.l.google.com:19302"]},
+        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:stun4.l.google.com:19302"]},
+    ]}
 )
 
 # Load Model (Cached to prevent reloading on every frame)
