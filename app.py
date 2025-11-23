@@ -129,11 +129,14 @@ with col1:
     st.info("Hold a sign for 1-2 seconds to add it to the sentence.")
     
     webrtc_ctx = webrtc_streamer(
-        key="asl-detection",
-        video_processor_factory=ASLProcessor,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True,
-    )
+    key="asl-detection",
+    video_processor_factory=ASLProcessor,
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+    rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    }
+)
 
 with col2:
     st.subheader("ASL Reference")
