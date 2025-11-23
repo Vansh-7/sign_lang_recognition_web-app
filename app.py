@@ -162,11 +162,10 @@ with col1:
     """)
     
     # WebRTC Streamer
-    # We create a key for the streamer to access its state later
     webrtc_ctx = webrtc_streamer(
         key="asl-detection",
         video_processor_factory=ASLProcessor,
-        mode=WebRtcMode.SENDRECV, # Using Enum for mode
+        mode=WebRtcMode.SENDRECV,
         rtc_configuration=RTC_CONFIGURATION,
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
@@ -181,31 +180,27 @@ with col2:
 
 # --- 4. Interactive Tools (Speech & Save) ---
 st.divider()
-st.subheader("📝 Sentence Tools")
+st.subheader("Sentence Tools")
 
-# We use a placeholder to hold the text area so we can update it programmatically
+# Create a placeholder for the text area so we can update it efficiently
 text_placeholder = st.empty()
 
-# Render text area using session state
+# Render the text area bound to session state
+# IMPORTANT: The key="asl_text" binds this widget to the session state variable
 sentence_input = text_placeholder.text_area(
     "Prediction stores here automatically:", 
-    value=st.session_state["asl_text"], 
-    height=70,
-    key="text_area_input"
+    key="asl_text", 
+    height=70
 )
-
-# Update session state if user types manually
-if sentence_input != st.session_state["asl_text"]:
-    st.session_state["asl_text"] = sentence_input
 
 c1, c2, c3 = st.columns(3)
 
 # Feature 1: Text to Speech
 with c1:
     if st.button("🔊 Speak Sentence"):
-        if st.session_state["asl_text"]:
+        if sentence_input:
             try:
-                tts = gTTS(text=st.session_state["asl_text"], lang='en')
+                tts = gTTS(text=sentence_input, lang='en')
                 sound_file = BytesIO()
                 tts.write_to_fp(sound_file)
                 st.audio(sound_file)
@@ -216,10 +211,10 @@ with c1:
 
 # Feature 2: Save to File
 with c2:
-    if st.session_state["asl_text"]:
+    if sentence_input:
         st.download_button(
             label="💾 Save as .txt",
-            data=st.session_state["asl_text"],
+            data=sentence_input,
             file_name="asl_translation.txt",
             mime="text/plain"
         )
@@ -237,13 +232,17 @@ with c3:
         st.rerun()
 
 # --- 5. Background Sync Loop ---
-# This logic runs on every script rerun to check if the video processor has new text
+# This loop runs constantly when the camera is playing.
+# It checks if the video processor has a new sentence and updates the UI.
 if webrtc_ctx.state.playing:
-    if webrtc_ctx.video_processor:
-        # Get the live sentence from the processor
-        live_sentence = webrtc_ctx.video_processor.sentence
+    while True:
+        if webrtc_ctx.video_processor:
+            live_sentence = webrtc_ctx.video_processor.sentence
+            
+            # If the processor has text different from what's on screen, update and rerun
+            if live_sentence != st.session_state["asl_text"]:
+                st.session_state["asl_text"] = live_sentence
+                st.rerun()
         
-        # If the processor has text different from our session state, update and rerun
-        if live_sentence != st.session_state["asl_text"]:
-            st.session_state["asl_text"] = live_sentence
-            st.rerun()
+        # Sleep briefly to avoid crashing the browser with too many updates
+        time.sleep(0.1)
