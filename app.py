@@ -141,12 +141,13 @@ col1, col2 = st.columns([0.65, 0.35])
 
 with col1:
     st.subheader("Webcam Feed")
-    
-    # Performance Tuners
-    with st.expander("⚙️ Sensitivity Settings"):
-        stability = st.slider("Detection Speed (Frames to hold)", 3, 30, 5, help="Lower = Faster detection, Higher = More accurate")
-        cooldown = st.slider("Cooldown (Frames wait)", 5, 30, 8, help="Wait time between letters")
+    st.markdown("""
+    **Instructions:**
+    1. Allow camera access.
+    2. Hold a sign stable to add it (Adjust speed in settings below).
+    """)
 
+    # WebRTC Streamer
     webrtc_ctx = webrtc_streamer(
         key="asl-detection",
         video_processor_factory=ASLProcessor,
@@ -155,6 +156,11 @@ with col1:
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
     )
+    
+    # Performance Tuners
+    with st.expander("⚙️ Sensitivity Settings"):
+        stability = st.slider("Detection Speed (Frames to hold)", 3, 30, 5, help="Lower = Faster detection, Higher = More accurate")
+        cooldown = st.slider("Cooldown (Frames wait)", 5, 30, 8, help="Wait time between letters")
 
     # Update processor settings dynamically
     if webrtc_ctx.video_processor:
@@ -169,7 +175,7 @@ with col2:
         st.warning("⚠️ 'ASL.png' not found.")
 
 st.divider()
-st.subheader("📝 Sentence Tools")
+st.subheader("Sentence Tools")
 
 # Text Area & Tools
 text_placeholder = st.empty()
@@ -177,34 +183,54 @@ sentence_input = text_placeholder.text_area("Prediction:", value=st.session_stat
 
 c1, c2, c3 = st.columns(3)
 
+# Feature 1: Text to Speech
 with c1:
-    if st.button("🔊 Speak"):
-        if st.session_state["asl_text"]:
+    if st.button("🔊 Speak Sentence"):
+        if sentence_input:
             try:
-                tts = gTTS(text=st.session_state["asl_text"], lang='en')
+                tts = gTTS(text=sentence_input, lang='en')
                 sound_file = BytesIO()
                 tts.write_to_fp(sound_file)
                 st.audio(sound_file)
-            except:
-                st.error("Audio error")
+            except Exception as e:
+                st.error(f"Audio generation error: {e}")
+        else:
+            st.warning("Please enter text to speak.")
 
+# Feature 2: Save to File
 with c2:
-    if st.session_state["asl_text"]:
-        st.download_button("💾 Save", st.session_state["asl_text"], "asl.txt")
+    if sentence_input:
+        st.download_button(
+            label="💾 Save as .txt",
+            data=sentence_input,
+            file_name="asl_translation.txt",
+            mime="text/plain"
+        )
+    else:
+        st.button("💾 Save as .txt", disabled=True)
 
+# Feature 3: Clear Text
 with c3:
-    if st.button("🧹 Clear"):
+    if st.button("🧹 Clear Text"):
+        # Clear session state
         st.session_state["asl_text"] = ""
+        # Clear the video processor memory if it's running
         if webrtc_ctx.video_processor:
             webrtc_ctx.video_processor.sentence = ""
         st.rerun()
 
 # --- 4. Background Sync Loop ---
+# This loop runs constantly when the camera is playing.
+# It checks if the video processor has a new sentence and updates the UI.
 if webrtc_ctx.state.playing:
     while webrtc_ctx.state.playing:
         if webrtc_ctx.video_processor:
             live_sentence = webrtc_ctx.video_processor.sentence
+            
+            # If the processor has text different from what's on screen, update and rerun
             if live_sentence != st.session_state["asl_text"]:
                 st.session_state["asl_text"] = live_sentence
                 st.rerun()
+                
+        # Sleep briefly to avoid crashing the browser with too many updates
         time.sleep(0.1) # Check every 100ms
