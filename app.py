@@ -7,7 +7,7 @@ import av
 import time
 from gtts import gTTS
 from io import BytesIO
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
 
 # --- 1. Setup & Configuration ---
 st.set_page_config(page_title="ASL Recognition Pro", layout="wide")
@@ -21,7 +21,7 @@ RTC_CONFIGURATION = RTCConfiguration(
 @st.cache_resource
 def load_model():
     try:
-        # Standard Keras 3 loading (matches the 'modern stack' requirements)
+        # Standard Keras 3 loading
         return tf.keras.models.load_model('asl_mediapipe_mlp_model.h5')
     except Exception as e:
         st.error(f"Error loading model. Please ensure 'asl_mediapipe_mlp_model.h5' is in the repo. Error: {e}")
@@ -115,7 +115,6 @@ class ASLProcessor(VideoProcessorBase):
                                         self.last_prediction = current_sign
                                         self.consecutive_frames = 0
                         except Exception as e:
-                            # Fail gracefully if prediction crashes
                             print(f"Prediction Error: {e}")
 
             # --- UI Overlays (Burned into the video feed) ---
@@ -135,7 +134,6 @@ class ASLProcessor(VideoProcessorBase):
             return av.VideoFrame.from_ndarray(img, format="bgr24")
             
         except Exception as e:
-            # If critical error, print it but return original frame so stream doesn't die
             print(f"Frame processing error: {e}")
             return frame
 
@@ -157,8 +155,8 @@ with col1:
     webrtc_ctx = webrtc_streamer(
         key="asl-detection",
         video_processor_factory=ASLProcessor,
-        mode="sendrecv",
-        rtc_configuration=RTC_CONFIGURATION, # Fixes cloud connection issues
+        mode=WebRtcMode.SENDRECV,
+        rtc_configuration=RTC_CONFIGURATION,
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
     )
@@ -175,8 +173,6 @@ st.divider()
 st.subheader("📝 Sentence Tools")
 
 # Text Area to edit/view the sentence
-# Note: We can't pull live data OUT of the video processor easily in Streamlit.
-# So we ask the user to type what they see if they want to save/speak it.
 sentence_input = st.text_area("Type the sentence you formed above to Speak or Save:", height=70)
 
 c1, c2, c3 = st.columns(3)
