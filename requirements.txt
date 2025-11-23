@@ -10,3 +10,4 @@ matplotlib
 pandas
 av
 gTTS
+aiortc==1.6.0
