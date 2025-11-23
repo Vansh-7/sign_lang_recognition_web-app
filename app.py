@@ -9,42 +9,58 @@ from gtts import gTTS
 from io import BytesIO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
 
+# --- MONKEY PATCH: FIX STREAMLIT-WEBRTC SHUTDOWN CRASH ---
+# This block fixes the "NoneType object has no attribute is_alive" error
+import streamlit_webrtc.shutdown
+import threading
+
+# Save the original stop function
+_original_stop = streamlit_webrtc.shutdown.SessionShutdownObserver.stop
+
+def _safe_stop(self):
+    # Check if the thread exists before checking if it's alive
+    if getattr(self, "_polling_thread", None) is None:
+        return
+    # Call the original function if safe
+    _original_stop(self)
+
+# Apply the patch
+streamlit_webrtc.shutdown.SessionShutdownObserver.stop = _safe_stop
+# ---------------------------------------------------------
+
 # --- 1. Setup & Configuration ---
 st.set_page_config(page_title="ASL Recognition Pro", layout="wide")
 
-# Initialize Session State for the text area if not present
+# Initialize Session State
 if "asl_text" not in st.session_state:
     st.session_state["asl_text"] = ""
 
-# Robust STUN server configuration to fix Cloud connection errors
+# Robust STUN server configuration
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
         {"urls": ["stun:stun1.l.google.com:19302"]},
         {"urls": ["stun:stun2.l.google.com:19302"]},
-        {"urls": ["stun:stun3.l.google.com:19302"]},
-        {"urls": ["stun:stun4.l.google.com:19302"]},
     ]}
 )
 
-# Load Model (Cached to prevent reloading on every frame)
+# Load Model
 @st.cache_resource
 def load_model():
     try:
-        # Standard Keras 3 loading
         return tf.keras.models.load_model('asl_mediapipe_mlp_model.h5')
     except Exception as e:
-        st.error(f"Error loading model. Please ensure 'asl_mediapipe_mlp_model.h5' is in the repo. Error: {e}")
+        st.error(f"Error loading model: {e}")
         return None
 
 model = load_model()
 
-# Define Classes (Must match the encoder in your Jupyter notebook)
+# Classes
 CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
            'del', 'space']
 
-# MediaPipe Initialization
+# MediaPipe
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(
@@ -57,41 +73,31 @@ hands = mp_hands.Hands(
 # --- 2. Video Processing Logic ---
 class ASLProcessor(VideoProcessorBase):
     def __init__(self):
-        # Variables for sentence formation logic
         self.sentence = ""
         self.last_prediction = None
         self.consecutive_frames = 0
-        self.stability_threshold = 15  # Frames to hold a sign before registering it
+        self.stability_threshold = 15 
         self.cooldown = 0
         self.prediction_text = ""
 
     def recv(self, frame):
         try:
-            # Convert frame to format OpenCV understands
             img = frame.to_ndarray(format="bgr24")
-            
-            # Flip horizontally for a mirror effect & Convert to RGB
             img = cv2.flip(img, 1)
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
-            # Process hand landmarks
             results = hands.process(img_rgb)
-            
-            current_sign = ""
             
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
-                    # Draw landmarks on the frame
                     mp_drawing.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                     
-                    # Extract x, y, z coordinates for model input
                     data_aux = []
                     for i in range(len(hand_landmarks.landmark)):
                         data_aux.append(hand_landmarks.landmark[i].x)
                         data_aux.append(hand_landmarks.landmark[i].y)
                         data_aux.append(hand_landmarks.landmark[i].z)
                     
-                    # Make Prediction
                     if model is not None:
                         try:
                             input_data = np.array([data_aux])
@@ -99,17 +105,15 @@ class ASLProcessor(VideoProcessorBase):
                             predicted_index = np.argmax(prediction)
                             confidence = np.max(prediction)
                             
-                            if confidence > 0.8: # Confidence Threshold
+                            if confidence > 0.8:
                                 current_sign = CLASSES[predicted_index]
                                 self.prediction_text = current_sign
                                 
-                                # --- Sentence Construction Logic ---
                                 if self.cooldown > 0:
                                     self.cooldown -= 1
                                 else:
                                     if current_sign == self.last_prediction:
                                         self.consecutive_frames += 1
-                                        # If sign is held stable for enough frames...
                                         if self.consecutive_frames >= self.stability_threshold:
                                             if current_sign == 'space':
                                                 self.sentence += " "
@@ -118,50 +122,35 @@ class ASLProcessor(VideoProcessorBase):
                                             else:
                                                 self.sentence += current_sign
                                             
-                                            # Reset and start cooldown
                                             self.consecutive_frames = 0
-                                            self.cooldown = 20 # Wait frames before accepting next input
+                                            self.cooldown = 20 
                                     else:
                                         self.last_prediction = current_sign
                                         self.consecutive_frames = 0
-                        except Exception as e:
-                            print(f"Prediction Error: {e}")
+                        except:
+                            pass
 
-            # --- UI Overlays (Burned into the video feed) ---
-            
-            # 1. Display Current Sign (Top Left)
+            # Overlays
             cv2.putText(img, f"Sign: {self.prediction_text}", (20, 50), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
             
-            # 2. Display Formed Sentence (Bottom Banner)
             h, w, _ = img.shape
-            # Black rectangle background
             cv2.rectangle(img, (0, h-60), (w, h), (0, 0, 0), -1)
-            # Sentence text
             cv2.putText(img, f"Sentence: {self.sentence}", (20, h-20), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
             return av.VideoFrame.from_ndarray(img, format="bgr24")
             
-        except Exception as e:
-            print(f"Frame processing error: {e}")
+        except Exception:
             return frame
 
-# --- 3. Streamlit App Layout ---
+# --- 3. Streamlit UI ---
 st.title("🖐️ Real-Time ASL Recognition App")
 
 col1, col2 = st.columns([0.65, 0.35])
 
 with col1:
     st.subheader("Webcam Feed")
-    st.markdown("""
-    **Instructions:**
-    1. Allow camera access.
-    2. Hold a sign stable for **1 second** to add it.
-    3. Use **'space'** gesture for space, **'del'** to delete.
-    """)
-    
-    # WebRTC Streamer
     webrtc_ctx = webrtc_streamer(
         key="asl-detection",
         video_processor_factory=ASLProcessor,
@@ -176,73 +165,47 @@ with col2:
     try:
         st.image("ASL.png", caption="ASL Alphabet", use_container_width=True)
     except:
-        st.warning("⚠️ 'ASL.png' not found in repository.")
+        st.warning("⚠️ 'ASL.png' not found.")
 
-# --- 4. Interactive Tools (Speech & Save) ---
 st.divider()
-st.subheader("Sentence Tools")
+st.subheader("📝 Sentence Tools")
 
-# Create a placeholder for the text area so we can update it efficiently
+# Text Area & Tools
 text_placeholder = st.empty()
-
-# Render the text area bound to session state
-# IMPORTANT: The key="asl_text" binds this widget to the session state variable
-sentence_input = text_placeholder.text_area(
-    "Prediction stores here automatically:", 
-    key="asl_text", 
-    height=70
-)
+sentence_input = text_placeholder.text_area("Prediction:", value=st.session_state["asl_text"], height=70)
 
 c1, c2, c3 = st.columns(3)
 
-# Feature 1: Text to Speech
 with c1:
-    if st.button("🔊 Speak Sentence"):
-        if sentence_input:
+    if st.button("🔊 Speak"):
+        if st.session_state["asl_text"]:
             try:
-                tts = gTTS(text=sentence_input, lang='en')
+                tts = gTTS(text=st.session_state["asl_text"], lang='en')
                 sound_file = BytesIO()
                 tts.write_to_fp(sound_file)
                 st.audio(sound_file)
-            except Exception as e:
-                st.error(f"Audio generation error: {e}")
-        else:
-            st.warning("Please enter text to speak.")
+            except:
+                st.error("Audio error")
 
-# Feature 2: Save to File
 with c2:
-    if sentence_input:
-        st.download_button(
-            label="💾 Save as .txt",
-            data=sentence_input,
-            file_name="asl_translation.txt",
-            mime="text/plain"
-        )
-    else:
-        st.button("💾 Save as .txt", disabled=True)
+    if st.session_state["asl_text"]:
+        st.download_button("💾 Save", st.session_state["asl_text"], "asl.txt")
 
-# Feature 3: Clear Text
 with c3:
-    if st.button("🧹 Clear Text"):
-        # Clear session state
+    if st.button("🧹 Clear"):
         st.session_state["asl_text"] = ""
-        # Clear the video processor memory if it's running
         if webrtc_ctx.video_processor:
             webrtc_ctx.video_processor.sentence = ""
         st.rerun()
 
-# --- 5. Background Sync Loop ---
-# This loop runs constantly when the camera is playing.
-# It checks if the video processor has a new sentence and updates the UI.
+# --- 4. Background Sync Loop ---
 if webrtc_ctx.state.playing:
-    while True:
+    # Loop to sync video processor sentence with UI
+    # We use a simple loop that breaks if the state changes
+    while webrtc_ctx.state.playing:
         if webrtc_ctx.video_processor:
             live_sentence = webrtc_ctx.video_processor.sentence
-            
-            # If the processor has text different from what's on screen, update and rerun
             if live_sentence != st.session_state["asl_text"]:
                 st.session_state["asl_text"] = live_sentence
                 st.rerun()
-        
-        # Sleep briefly to avoid crashing the browser with too many updates
-        time.sleep(0.1)
+        time.sleep(0.2) # Update every 200ms to be gentle on the browser
