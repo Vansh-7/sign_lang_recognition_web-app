@@ -1,4 +1,4 @@
-# 🖐️ Real-Time ASL Recognition Pro
+# 🖐️ Real-Time ASL Recognition
 
 > A powerful real-time American Sign Language (ASL) detection system built with **Streamlit**, **MediaPipe**, and **TensorFlow**. This application translates hand gestures into text and speech instantly using a lightweight neural network.
 
