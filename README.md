@@ -40,8 +40,8 @@ Ensure you have **Python 3.8+** installed.
 ### 1\. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/asl-recognition-pro.git
-cd asl-recognition-pro
+git clone https://github.com/Vansh-7/sign_lang_recognition_web-app.git
+cd sign_lang_recognition_web-app
 ```
 
 ### 2\. Create a Virtual Environment
