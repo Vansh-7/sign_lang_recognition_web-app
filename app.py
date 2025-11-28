@@ -14,21 +14,27 @@ import asyncio
 from aioice import stun
 import logging
 
-#---
-original_retry = stun.Transaction.__retry
+# --- BEGIN PATCH ---
+# Fix for "NoneType object has no attribute sendto" on reload
+# We must use the mangled name '_Transaction__retry' because it is a private method.
+try:
+    if hasattr(stun.Transaction, "_Transaction__retry"):
+        original_retry = stun.Transaction._Transaction__retry
 
-def patched_retry(self):
-    try:
-        original_retry(self)
-    except (AttributeError, OSError) as e:
-        if "NoneType" in str(e) or "sendto" in str(e):
-            # Connection is dead, suppress the error
-            pass 
-        else:
-            raise e
+        def patched_retry(self):
+            try:
+                original_retry(self)
+            except (AttributeError, OSError) as e:
+                # Catch the specific race condition error when connection dies
+                if "NoneType" in str(e) or "sendto" in str(e):
+                    pass 
+                else:
+                    raise e
 
-stun.Transaction.__retry = patched_retry
-#---
+        stun.Transaction._Transaction__retry = patched_retry
+except Exception as e:
+    logging.warning(f"Could not patch aioice.stun.Transaction: {e}")
+# --- END PATCH ---
 
 
 try:
