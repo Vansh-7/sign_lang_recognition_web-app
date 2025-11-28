@@ -40,8 +40,8 @@ def _safe_stop(self):
 streamlit_webrtc.shutdown.SessionShutdownObserver.stop = _safe_stop
 # ---------------------------------------------------------
 
-# --- 1. Setup & Configuration ---
-st.set_page_config(page_title="ASL Recognition Pro", layout="wide")
+# 1. Setup & Configuration
+st.set_page_config(page_title="ASL Recognition", layout="wide")
 
 if "asl_text" not in st.session_state:
     st.session_state["asl_text"] = ""
@@ -76,7 +76,7 @@ hands = mp_hands.Hands(
     min_tracking_confidence=0.7
 )
 
-# --- 2. Video Processing Logic ---
+# 2. Video Processing Logic
 class ASLProcessor(VideoProcessorBase):
     def __init__(self):
         self.sentence = ""
@@ -153,7 +153,7 @@ class ASLProcessor(VideoProcessorBase):
         except Exception:
             return frame
 
-# --- 3. Streamlit UI ---
+# 3. Streamlit UI
 st.title("🖐️ Real-Time ASL Recognition App")
 
 col1, col2 = st.columns([0.65, 0.35])
@@ -238,7 +238,7 @@ with c3:
             webrtc_ctx.video_processor.sentence = ""
         st.rerun()
 
-# --- 4. Background Sync Loop ---
+# 4. Background Sync Loop
 # This loop runs constantly when the camera is playing.
 # It checks if the video processor has a new sentence and updates the UI.
 if webrtc_ctx.state.playing:
