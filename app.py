@@ -11,6 +11,25 @@ from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfigurati
 import streamlit_webrtc.shutdown
 import threading
 import asyncio
+from aioice import stun
+import logging
+
+#---
+original_retry = stun.Transaction.__retry
+
+def patched_retry(self):
+    try:
+        original_retry(self)
+    except (AttributeError, OSError) as e:
+        if "NoneType" in str(e) or "sendto" in str(e):
+            # Connection is dead, suppress the error
+            pass 
+        else:
+            raise e
+
+stun.Transaction.__retry = patched_retry
+#---
+
 
 try:
     loop = asyncio.get_event_loop()
