@@ -258,17 +258,19 @@ with c3:
         st.rerun()
 
 # 4. Background Sync Loop
-# This loop runs constantly when the camera is playing.
-# It checks if the video processor has a new sentence and updates the UI.
 if webrtc_ctx.state.playing:
+    # Create a placeholder container once, so we don't need to full rerun just to update text
+    # Note: Streamlit execution model usually requires rerun to update UI outside the loop, 
+    # but we can check strictly for changes.
+    
     while webrtc_ctx.state.playing:
         if webrtc_ctx.video_processor:
             live_sentence = webrtc_ctx.video_processor.sentence
             
-            # If the processor has text different from what's on screen, update and rerun
+            # ONLY rerun if the text has actually changed
             if live_sentence != st.session_state["asl_text"]:
                 st.session_state["asl_text"] = live_sentence
                 st.rerun()
                 
-        # Sleep briefly to avoid crashing the browser with too many updates
-        time.sleep(0.1) # Check every 100ms
+        # Increase sleep slightly to relieve CPU and reduce race conditions
+        time.sleep(0.2)
