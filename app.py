@@ -71,11 +71,29 @@ st.set_page_config(page_title="ASL Recognition", layout="wide")
 if "asl_text" not in st.session_state:
     st.session_state["asl_text"] = ""
 
+@st.cache_resource
+def get_ice_servers():
+    try:
+        # Check if secrets exist
+        if "twilio" in st.secrets:
+            account_sid = st.secrets["twilio"]["account_sid"]
+            auth_token = st.secrets["twilio"]["auth_token"]
+            client = Client(account_sid, auth_token)
+            
+            # Request a token for the TURN server
+            token = client.tokens.create()
+            return token.ice_servers
+        else:
+            # Fallback to Google STUN (likely to fail on Cloud)
+            logging.warning("Twilio secrets not found, using default STUN servers.")
+            return [{"urls": ["stun:stun.l.google.com:19302"]}]
+    except Exception as e:
+        logging.error(f"Error fetching TURN servers: {e}")
+        return [{"urls": ["stun:stun.l.google.com:19302"]}]
+
+# Initialize the configuration with the fetched servers
 RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [
-        {"urls": ["stun:stun.l.google.com:19302"]},
-        {"urls": ["stun:stun1.l.google.com:19302"]},
-    ]}
+    {"iceServers": get_ice_servers()}
 )
 
 @st.cache_resource
@@ -280,3 +298,6 @@ if webrtc_ctx.state.playing:
                 
         # Increase sleep slightly to relieve CPU and reduce race conditions
         time.sleep(0.2)
+  
+# twilio        
+# D3HVWWXAWDEZ77SLYVDZ69JY
