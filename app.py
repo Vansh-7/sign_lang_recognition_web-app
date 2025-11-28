@@ -9,6 +9,7 @@ from gtts import gTTS
 from io import BytesIO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
 import streamlit_webrtc.shutdown
+from twilio.rest import Client # <--- Add this import
 import threading
 import asyncio
 from aioice import stun
