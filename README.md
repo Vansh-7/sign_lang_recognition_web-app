@@ -35,7 +35,7 @@
 
 ### Prerequisites
 
-Ensure you have **Python 3.8+** installed.
+Use **Python 3.11** (including in Streamlit Community Cloud advanced settings).
 
 ### 1\. Clone the Repository
 
@@ -89,3 +89,27 @@ Once the app launches in your browser:
 ## 📜 License
 
 This project is open-source and available under the **MIT License**.
+
+## Streamlit resource usage
+
+The web app reads the existing H5 model with `h5py` and runs its three dense
+layers with NumPy. TensorFlow and Keras are only needed for training in the
+notebook; they are no longer web app dependencies. Keep `asl_model.py` beside
+`app.py` and the existing model file. No retraining or model conversion is needed.
+
+Camera capture is limited to 15 FPS with a preferred 480 × 360 resolution.
+Recognition runs at most 10 times per second using MediaPipe's lightweight hand
+tracker, and stale queued frames are dropped. Sensitivity sliders count
+recognition samples (five samples take at least about 0.5 seconds). Sentence
+updates refresh only the tools panel every 0.5 seconds. Each camera session
+closes its own tracker on disconnect. Sentence history is capped at 2,000
+characters, with the last 24 visible in the video overlay.
+
+After merging these changes, reboot the Streamlit app so its environment is
+rebuilt using the updated requirements. Configure Twilio TURN credentials in
+Streamlit secrets for networks that cannot connect through the STUN fallback.
+TURN credentials refresh hourly.
+
+Development checks: `python -m pip install pytest`, then `python -m pytest -q`.
+A live browser camera test on the deployed host is still needed to assess
+network latency and concurrency on that host.
