@@ -1,5 +1,7 @@
 # Python 3.11. Keep TensorFlow/Keras in training/requirements.txt only.
 streamlit==1.60.0
+# Streamlit 1.60 subclasses the gzip middleware API from this release.
+starlette==1.3.1
 streamlit-webrtc==0.79.0
 opencv-contrib-python==4.11.0.86
 mediapipe==0.10.14

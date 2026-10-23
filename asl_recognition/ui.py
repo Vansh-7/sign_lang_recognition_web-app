@@ -58,7 +58,7 @@ def main():
     with col2:
         st.subheader("ASL Reference")
         if REFERENCE_IMAGE_PATH.exists():
-            st.image(str(REFERENCE_IMAGE_PATH), caption="ASL Alphabet", use_container_width=True)
+            st.image(str(REFERENCE_IMAGE_PATH), caption="ASL Alphabet", width="stretch")
         else:
             st.warning("The ASL reference image is unavailable.")
 

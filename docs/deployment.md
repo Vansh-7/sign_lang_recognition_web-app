@@ -13,7 +13,8 @@ therefore remain at the root even though the application code is packaged
 under `asl_recognition/`. Model and image paths resolve from the package
 location, not the process's working directory.
 
-- `requirements.txt`: pinned Python runtime dependencies.
+- `requirements.txt`: pinned Python runtime dependencies, including a Starlette
+  version compatible with Streamlit's media response middleware.
 - `packages.txt`: native video libraries, including `libgl1`.
 - `.streamlit/config.toml`: deployment defaults with file watching disabled.
 - `models/` and `assets/`: required runtime files, committed with the code.
