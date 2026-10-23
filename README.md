@@ -1,130 +1,240 @@
 # 🖐️ Real-Time ASL Recognition
 
-> A real-time American Sign Language (ASL) recognition system built with **Streamlit**, **MediaPipe**, and a lightweight neural network. Turn hand gestures into editable text and speech.
+Recognize ASL alphabet hand poses from a browser webcam, build an editable sentence,
+and turn the result into speech or a downloadable text file.
 
-**🌐 [Try the live app](https://asl-recognition-7.streamlit.app/)**
+![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Built_with-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![MediaPipe 0.10.14](https://img.shields.io/badge/MediaPipe-0.10.14-0097A7)
 
-## Features
+**🌐 [Open the live demo](https://asl-recognition-7.streamlit.app/)**
 
-  * **Real-Time Detection:** Uses **Streamlit WebRTC** to process live webcam feeds with low latency.
-  * **Smart Prediction:** Filters noise using a customizable stability algorithm (sliders for detection speed and cooldown).
-  * **Text-to-Speech (TTS):** Converts the predicted sign language sentence into spoken audio using **gTTS**.
-  * **Save & Export:** Allows users to download the translated sentence as a `.txt` file.
-  * **Interactive UI:** Includes an integrated ASL alphabet reference chart and dynamic sensitivity settings.
-  * **Lightweight Model:** Uses a customized Multi-Layer Perceptron (MLP) trained on MediaPipe hand landmarks (x, y, z coordinates).
+## Key Features
 
-## Tech Stack
+- **Webcam recognition:** Browser-based video streaming with a live sign and sentence overlay.
+- **Stable predictions:** Adjustable hold and cooldown settings reduce accidental inputs.
+- **Editable text:** Correct recognized text or clear it while keeping the camera running.
+- **Text-to-speech:** Read the sentence aloud using gTTS.
+- **Text export:** Download the current sentence as a `.txt` file.
+- **ASL reference:** View the alphabet chart beside the webcam feed.
 
-  * **Frontend:** Streamlit
-  * **Computer Vision:** MediaPipe, OpenCV, Streamlit-WebRTC
-  * **Model Inference:** NumPy and h5py (TensorFlow/Keras are used only for training)
-  * **Audio Processing:** gTTS (Google Text-to-Speech)
-  * **Data Processing:** NumPy
+## Technology Stack
 
-## 📂 Project Structure
+| Area | Technologies |
+| --- | --- |
+| Interface | Streamlit |
+| Video streaming | Streamlit WebRTC, PyAV, Twilio TURN / public STUN fallback |
+| Hand tracking | MediaPipe Hands, OpenCV |
+| Model inference | NumPy, h5py |
+| Speech | gTTS |
+| Training only | TensorFlow/Keras, scikit-learn, Pandas, Matplotlib, JupyterLab |
+
+Runtime and training dependencies are separate. The deployed app reads the existing
+H5 weights without importing TensorFlow or Keras.
+
+## How It Works
+
+1. The browser sends webcam frames to the app through WebRTC.
+2. OpenCV resizes and mirrors the frame; MediaPipe tracks one hand.
+3. The 21 landmarks are flattened into 63 coordinates in x/y/z order.
+4. The neural network predicts one of 28 classes: **A–Z**, **`del`**, or **`space`**.
+5. Predictions above **0.8 confidence** must remain stable before updating the sentence.
+6. Sentence tools let you edit, speak, download, or clear the result.
+
+Capture is limited to 15 FPS, with recognition running at most 10 times per second.
+Stale frames are dropped, and the sentence panel refreshes every 0.5 seconds without
+rerunning the whole page. Each camera session closes its own tracker when stopped.
+
+## Model Architecture and Inference
+
+The saved model is a multilayer perceptron trained on landmark coordinates:
+
+| Layer | Output | Activation / configuration |
+| --- | --- | --- |
+| Input | 63 features | 21 landmarks × 3 coordinates |
+| Dense | 128 units | ReLU |
+| Dropout | 128 units | Rate 0.2; training only |
+| Dense | 64 units | ReLU |
+| Dropout | 64 units | Rate 0.2; training only |
+| Dense | 28 classes | Softmax |
 
 ```text
-├── app.py                            # Streamlit UI and webcam processing
-├── asl_model.py                      # Lightweight model loader and inference
-├── asl_mediapipe_mlp_model.h5        # Pre-trained model
-├── ASL.png                           # ASL alphabet reference
-├── requirements.txt                  # App dependencies
-├── packages.txt                      # Linux dependencies for deployment
-├── .streamlit/                       # Configuration and secrets example
-├── training/                         # Original notebook, landmark CSV, and training dependencies
-└── tests/                            # App and deployment checks
+Webcam → hand landmarks → 63 coordinates → MLP probabilities
+       → confidence / stability / cooldown checks → editable sentence
 ```
 
-## ⚙️ Installation
+`asl_model.py` loads the dense-layer weights from
+`models/asl_mediapipe_mlp_model.h5`. NumPy performs the forward pass; dropout is
+inactive during inference. Model weights are cached across sessions. Sliders count
+**recognition samples**, rather than captured camera frames. Text is capped at
+2,000 characters, with the last 24 shown in the video overlay.
 
-### Prerequisites
+## Project Structure
 
-Use **Python 3.11** and a browser with webcam access.
+```text
+sign_lang_recognition_web-app/
+├── .streamlit/
+│   ├── config.toml
+│   └── secrets.toml.example
+├── assets/
+│   └── ASL.png
+├── models/
+│   └── asl_mediapipe_mlp_model.h5
+├── training/
+│   ├── asl_mediapipe_final.ipynb
+│   ├── asl_mediapipe_keypoints_dataset.csv
+│   └── requirements.txt
+├── tests/
+│   ├── conftest.py
+│   ├── test_app.py
+│   └── test_deployment.py
+├── app.py
+├── asl_model.py
+├── requirements.txt
+├── packages.txt
+├── .gitignore
+└── README.md
+```
 
-### 1\. Clone the Repository
+`app.py` remains the Streamlit entry point. Model and image paths resolve relative
+to that file, so they do not depend on the current working directory. The training
+notebook and complete dataset are retained and are not loaded by the running app.
+
+## Local Installation
+
+Use **Python 3.11**, a webcam, and a browser with camera access.
 
 ```bash
 git clone https://github.com/Vansh-7/sign_lang_recognition_web-app.git
 cd sign_lang_recognition_web-app
-```
-
-### 2\. Create a Virtual Environment
-
-It is recommended to use a virtual environment to avoid conflicts.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # macOS / Linux
-# Windows PowerShell: .venv\Scripts\Activate.ps1
-```
-
-### 3\. Install Dependencies
-
-Install the app dependencies:
-
-```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-## ▶️ Usage
+On Windows PowerShell, use these environment commands instead:
 
-Run the Streamlit application:
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+On Debian/Ubuntu, install the OpenCV system libraries if needed:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libgl1 libglib2.0-0
+```
+
+## Run the Application
+
+From the repository root, with the environment active:
 
 ```bash
 python -m streamlit run app.py
 ```
 
-Once the app launches in your browser:
+Select **Start**, allow camera access, and hold one hand steady in good lighting.
+Use **Sensitivity Settings** to adjust how long a sign must be held and the wait
+between letters. Select **Stop** when finished.
 
-1.  **Grant Camera Access:** Click "Start" on the webcam feed.
-2.  **Perform Signs:** Hold your hand up to the camera. The model detects landmarks and predicts the letter.
-3.  **Adjust Settings:** Use the "Sensitivity Settings" dropdown to tune:
-      * *Detection Speed:* How many recognition samples to hold a sign before it registers.
-      * *Cooldown:* How long to wait between letters.
-4.  **Tools:** Edit the text, Speak the sentence, Save it to a file, or Clear it.
-5.  **Stop:** Stop the camera when finished to release its resources.
+File watching is disabled in the deployment configuration. For automatic local
+reloads, run `python -m streamlit run app.py --server.fileWatcherType=auto`.
 
-## ☁️ Streamlit Deployment
+To run the automated checks:
 
-Deploy from this repository with **`app.py`** as the main file and **Python 3.11**.
-Keep the model, `ASL.png`, and app files together. Community Cloud installs
-`requirements.txt` and `packages.txt`; allow it to rebuild after dependency changes.
+```bash
+python -m pip install pytest
+python -m pytest -q
+```
 
-For reliable camera connections across networks, add Twilio credentials in
-**Settings → Secrets**, following [the secrets example](.streamlit/secrets.toml.example).
-Locally, copy the example to `.streamlit/secrets.toml` and fill in your credentials.
-The real secrets file is ignored by Git. Without TURN credentials, the STUN
-fallback may fail on restrictive networks. Twilio relay usage can incur charges.
+## Training and Dataset
 
-If the hosted app shows an error, check **Manage app** for the detailed logs and
-reboot after fixing the reported issue.
+The supplied CSV contains **59,803 samples**, each with **63 landmark features** and
+one label from the 28 output classes. The notebook uses a label encoder, an 80/20
+train/test split, and a 20% validation split within training. Its training cell
+uses Adam, categorical cross-entropy, 10 epochs, and a batch size of 128.
 
-## 🧠 How It Works
+Create a separate Python 3.11 environment for training so its TensorFlow/JAX
+requirements do not mix with the web app's environment:
 
-1.  **Video Capture:** The app uses `streamlit-webrtc` to capture video frames directly in the browser.
-2.  **Landmark Extraction:** **MediaPipe Hands** processes each frame to extract 21 hand landmarks (consisting of x, y, and z coordinates).
-3.  **Preprocessing:** These coordinates are flattened into a vector and fed into the neural network.
-4.  **Inference:** The existing `.h5` model runs with NumPy and h5py, predicting A–Z, Space, or Del above 0.8 confidence. The deployed app does not need TensorFlow.
-5.  **Post-Processing:** Stability and cooldown settings filter repeated predictions before adding them to the sentence.
+```bash
+python3.11 -m venv .venv-training
+source .venv-training/bin/activate
+python -m pip install -r training/requirements.txt
+python -m jupyterlab training/asl_mediapipe_final.ipynb
+```
 
-Capture is capped at 15 FPS and recognition at 10 samples per second. The app
-drops stale frames, refreshes the sentence panel independently, and closes the
-hand tracker when the camera stops.
+On Windows, create it with `py -3.11 -m venv .venv-training` and activate
+`.\.venv-training\Scripts\Activate.ps1` before the install command.
 
-The model recognizes individual hand poses rather than continuous ASL sentences;
-motion-based letters such as J and Z may be less reliable. Camera frames are
-processed on the server; selecting Speak sends the sentence to Google through gTTS.
+- To use the supplied CSV, run the setup/import cells, skip image extraction,
+  and continue from the dataset-loading cell.
+- Raw training images are not included. To extract new landmarks, point
+  `ASL_TRAINING_IMAGES` at an image dataset organized into class folders.
+- The notebook resolves the CSV in `training/`, the model in `models/`, and
+  the reference image in `assets/`, whether opened from the root or `training/`.
+- Training/extraction cells overwrite the corresponding model/CSV when run;
+  keep a backup and verify class order before replacing the deployed model.
+- The optional Tkinter webcam demo requires a local GUI and camera. It does not
+  run on Streamlit Cloud. Saved notebook outputs are omitted from Git.
 
-### Training and Testing
+## Streamlit Community Cloud Deployment
 
-The original notebook and landmark dataset are in `training/`. Use
-`training/requirements.txt` in a separate environment for model work. The notebook
-can use the supplied CSV; extracting landmarks from new images requires your
-own dataset, configured through `ASL_TRAINING_IMAGES`.
+### Select Python 3.11 explicitly
 
-To run the app checks: `python -m pip install pytest`, then `python -m pytest -q`.
-Also verify the camera and network connection on the deployed app.
+`mediapipe==0.10.14` has a Python 3.11 Linux wheel, but no Python 3.14 wheel.
+Keep the pinned MediaPipe version and select the compatible interpreter at deploy
+time; replacing or deleting the model does not fix an interpreter mismatch.
+See the [published MediaPipe files](https://pypi.org/project/mediapipe/0.10.14/#files).
 
-## 📜 License
+1. In your [Community Cloud workspace](https://share.streamlit.io/), select
+   **Create app**, then choose the existing GitHub repository.
+2. Set the repository to `Vansh-7/sign_lang_recognition_web-app` and select the
+   branch containing these changes (`main` after merge).
+3. Set **Main file path** to **`app.py`** and the desired app subdomain to
+   **`asl-recognition-7`**, if available.
+4. Open **Advanced settings** and select **Python 3.11** in the Python dropdown.
+5. Add any Twilio secrets, save the settings, and select **Deploy**.
+6. Check the build logs to confirm Python 3.11 and successful dependency installation,
+   then test the camera and sentence tools.
 
-This project is open-source and available under the **MIT License**.
+Community Cloud installs root `requirements.txt` and `packages.txt`. Do not install
+`training/requirements.txt` into the deployed app.
+
+**Existing deployment using Python 3.14.9:** a reboot or requirements change does
+not change its Python interpreter. Streamlit's documented process is to record the
+current subdomain, repository/branch/entry point, and secrets; delete the Cloud app;
+then recreate it with the same settings and **Python 3.11** selected under
+**Advanced settings**. Restore the secrets and reuse `asl-recognition-7` if available.
+This causes downtime while the replacement deploys.
+
+Python is selected in the Cloud interface. This repository does not rely on
+`runtime.txt`, `.python-version`, or `.streamlit/config.toml` to force Cloud's
+interpreter. See Streamlit's official [deployment instructions](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy)
+and [Python-version change procedure](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app/upgrade-python).
+
+### Configure camera connectivity
+
+For restrictive networks, configure a Twilio TURN relay in **Settings → Secrets**
+using [.streamlit/secrets.toml.example](.streamlit/secrets.toml.example). For local
+use, copy the template to `.streamlit/secrets.toml` and enter your credentials.
+The real secrets file is ignored by Git.
+
+Without TURN credentials the app falls back to public STUN, which may fail on some
+mobile or corporate networks. Twilio relay usage can incur charges. If the public
+page shows “Error running app,” open **Manage app** to inspect the detailed logs.
+
+## Limitations and Future Improvements
+
+- This is a pose classifier, not a continuous ASL translator. Motion-based letters
+  such as J and Z may be less reliable without temporal modeling.
+- Recognition depends on lighting, framing, camera quality, and available CPU.
+  Per-session limits do not guarantee a particular number of concurrent users.
+- Camera frames travel to the app server for processing. The app does not write
+  video or transcripts to disk; session text may be lost on restart/reconnect.
+- Selecting **Speak Sentence** sends the sentence to Google's speech service
+  through gTTS and requires an internet connection.
+- Potential improvements include temporal gesture recognition, evaluation across
+  more users and lighting conditions, and measured capacity testing on the host.
