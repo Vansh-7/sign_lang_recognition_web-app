@@ -2,8 +2,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.py[cod]
-.venv/
-venv/
+.venv*/
+venv*/
 .env
 .env.*
 !.env.example
@@ -13,3 +13,16 @@ training/raw/
 *.log
 .DS_Store
 Thumbs.db
+
+# Keep raw image downloads and generated training artifacts out of Git.
+/Asl_Sign_Data/
+/asl_alphabet_train/
+/asl_alphabet_test/
+/training/*.zip
+/training/*.tar.gz
+/training/checkpoints/
+/training/logs/
+/training/runs/
+/build/
+/dist/
+*.egg-info/

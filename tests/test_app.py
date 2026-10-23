@@ -104,7 +104,8 @@ def test_saved_model_returns_finite_class_probabilities():
         model(np.zeros((1, 62)))
 
 
-def test_sentence_tools_sync_edit_and_clear(monkeypatch):
+@pytest.fixture
+def sentence_page(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     processor = app.ASLProcessor(Mock(), threading.Lock(), "A")
@@ -112,6 +113,12 @@ def test_sentence_tools_sync_edit_and_clear(monkeypatch):
     monkeypatch.setattr(app, "webrtc_streamer", lambda **kwargs: context)
     monkeypatch.setattr(app, "get_ice_servers", lambda: [])
     page = AppTest.from_string("import app; app.main()", default_timeout=30).run()
+    assert not page.exception
+    return page, processor
+
+
+def test_sentence_tools_sync_edit_and_clear(sentence_page):
+    page, processor = sentence_page
     assert not page.exception
     assert page.text_area[0].value == "A"
     page.text_area[0].input("EDITED").run()
@@ -123,3 +130,28 @@ def test_sentence_tools_sync_edit_and_clear(monkeypatch):
     next(button for button in page.button if "Clear" in button.label).click().run()
     assert not page.exception
     assert page.text_area[0].value == processor.snapshot()[0] == ""
+
+
+def test_speech_and_download_controls(sentence_page, monkeypatch):
+    page, _ = sentence_page
+    audio_bytes = b"ID3test-audio"
+    speech = Mock()
+    speech.write_to_fp.side_effect = lambda buffer: buffer.write(audio_bytes)
+    speech_factory = Mock(return_value=speech)
+    monkeypatch.setattr(app, "gTTS", speech_factory)
+    page.text_area[0].input("HELLO").run()
+    assert not page.get("download_button")[0].proto.disabled
+    next(button for button in page.button if "Speak" in button.label).click().run()
+    assert not page.exception
+    assert speech_factory.call_args.kwargs["text"] == "HELLO"
+    assert page.session_state["speech_audio"] == audio_bytes
+    assert len(page.get("audio")) == 1
+
+
+def test_sensitivity_controls_update_processor(sentence_page):
+    page, processor = sentence_page
+    page.slider[0].set_value(7).run()
+    page.slider[1].set_value(12).run()
+    assert not page.exception
+    assert processor.stability_threshold == 7
+    assert processor.cooldown_duration == 12

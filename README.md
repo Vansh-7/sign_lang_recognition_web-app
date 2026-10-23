@@ -5,9 +5,12 @@ and turn the result into speech or a downloadable text file.
 
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Built_with-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
-![MediaPipe 0.10.14](https://img.shields.io/badge/MediaPipe-0.10.14-0097A7)
 
-**🌐 [Open the live demo](https://asl-recognition-7.streamlit.app/)**
+**[Open the live demo](https://asl-recognition-7.streamlit.app/)**
+
+![Live ASL recognition app with camera controls and alphabet reference](assets/app-screenshot.png)
+
+*Captured from the live deployment with the camera stopped.*
 
 ## Key Features
 
@@ -73,11 +76,13 @@ inactive during inference. Model weights are cached across sessions. Sliders cou
 
 ```text
 sign_lang_recognition_web-app/
+├── .github/workflows/tests.yml
 ├── .streamlit/
 │   ├── config.toml
 │   └── secrets.toml.example
 ├── assets/
-│   └── ASL.png
+│   ├── ASL.png
+│   └── app-screenshot.png
 ├── models/
 │   └── asl_mediapipe_mlp_model.h5
 ├── training/
@@ -149,7 +154,19 @@ python -m pip install pytest
 python -m pytest -q
 ```
 
+GitHub Actions runs these checks on Ubuntu / Python 3.11 for pushes and pull
+requests to `main`, with pip caching and a shallow checkout. Camera processing,
+WebRTC context, and speech calls are mocked where needed; tests block external
+network access and do not need a webcam or Twilio credentials.
+
 ## Training and Dataset
+
+**Image source:** [ASL Alphabet](https://www.kaggle.com/datasets/grassknoted/asl-alphabet)
+by Akash Nagaraj (`grassknoted`). Attribution was verified by matching two historical
+training images and one test image byte-for-byte with public source files. The
+upstream dataset has 29 classes, including `nothing`; the project-generated
+landmark CSV contains 28 classes and has no `nothing` rows. Refer to the upstream
+data card for its license and citation details.
 
 The supplied CSV contains **59,803 samples**, each with **63 landmark features** and
 one label from the 28 output classes. The notebook uses a label encoder, an 80/20
@@ -180,6 +197,21 @@ On Windows, create it with `py -3.11 -m venv .venv-training` and activate
 - The optional Tkinter webcam demo requires a local GUI and camera. It does not
   run on Streamlit Cloud. Saved notebook outputs are omitted from Git.
 
+## Streamlit Community Cloud Deployment
+
+1. Choose this GitHub repository and the `main` branch in Community Cloud.
+2. Set **Main file path** to **`app.py`**.
+3. In **Advanced settings**, select **Python 3.11** and add any Twilio credentials
+   using [.streamlit/secrets.toml.example](.streamlit/secrets.toml.example).
+4. Deploy and check the build logs. Root `requirements.txt` and `packages.txt`
+   supply the runtime dependencies; training dependencies are separate.
+
+The working app remains at [asl-recognition-7.streamlit.app](https://asl-recognition-7.streamlit.app/).
+Keep Python 3.11 for the pinned MediaPipe release. A repository file does not force
+Community Cloud's interpreter; changing an existing app's Python version requires
+redeployment through its [documented process](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app/upgrade-python).
+See the official [deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
+
 ## Limitations and Future Improvements
 
 - This is a pose classifier, not a continuous ASL translator. Motion-based letters
@@ -192,3 +224,9 @@ On Windows, create it with `py -3.11 -m venv .venv-training` and activate
   through gTTS and requires an internet connection.
 - Potential improvements include temporal gesture recognition, evaluation across
   more users and lighting conditions, and measured capacity testing on the host.
+
+## License Status
+
+No repository-wide `LICENSE` file is currently provided. The source dataset lists
+its own license on Kaggle; attribution does not relicense that material. A license
+for the original application code should be chosen by its rights holders.
