@@ -9,7 +9,7 @@ venv/
 !.env.example
 .streamlit/secrets.toml
 .ipynb_checkpoints/
-data/raw/
+training/raw/
 *.log
 .DS_Store
 Thumbs.db

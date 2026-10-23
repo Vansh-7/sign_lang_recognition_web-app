@@ -6,10 +6,13 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from asl_recognition import processor as video
-from asl_recognition import ui
-from asl_recognition.config import MAX_SENTENCE_LENGTH, MODEL_PATH, PROJECT_ROOT
-from asl_recognition.model import ASLModel
+import app as ui
+import app as video
+from app import BASE_DIR as PROJECT_ROOT
+from app import MAX_SENTENCE_LENGTH
+from asl_model import ASLModel
+
+MODEL_PATH = PROJECT_ROOT / "asl_mediapipe_mlp_model.h5"
 
 
 @pytest.fixture
@@ -112,7 +115,7 @@ def test_sentence_tools_sync_edit_and_clear(monkeypatch):
     context = SimpleNamespace(video_processor=processor)
     monkeypatch.setattr(ui, "webrtc_streamer", lambda **kwargs: context)
     monkeypatch.setattr(ui, "get_ice_servers", lambda: [])
-    page = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    page = AppTest.from_string("import app; app.main()", default_timeout=30).run()
     assert not page.exception
     assert page.text_area[0].value == "A"
     page.text_area[0].input("EDITED").run()

@@ -1,5 +1,6 @@
-"""Initialize thread limits before test modules import video libraries."""
+"""Make the flat application importable when running tests from the repository."""
 
-from asl_recognition.config import configure_runtime
+import sys
+from pathlib import Path
 
-configure_runtime()
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

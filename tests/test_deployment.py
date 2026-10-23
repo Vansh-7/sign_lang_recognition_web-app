@@ -1,12 +1,15 @@
 """Deployment contracts: stable entry point, portable assets, valid configuration."""
 
 import json
-import tomllib
 
 import pytest
+import tomllib
 
-from asl_recognition.config import MODEL_PATH, PROJECT_ROOT, REFERENCE_IMAGE_PATH
-from asl_recognition.model import ASLModel
+from app import BASE_DIR as PROJECT_ROOT
+from asl_model import ASLModel
+
+MODEL_PATH = PROJECT_ROOT / "asl_mediapipe_mlp_model.h5"
+REFERENCE_IMAGE_PATH = PROJECT_ROOT / "ASL.png"
 
 
 def test_runtime_assets_resolve_outside_repository(monkeypatch, tmp_path):
@@ -29,7 +32,7 @@ def test_streamlit_configuration_and_secret_template():
 
 def test_notebook_paths_and_code_are_valid():
     notebook = json.loads(
-        (PROJECT_ROOT / "notebooks/asl_mediapipe_final.ipynb").read_text(encoding="utf-8")
+        (PROJECT_ROOT / "training/asl_mediapipe_final.ipynb").read_text(encoding="utf-8")
     )
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
@@ -56,10 +59,10 @@ def test_runtime_requirements_exclude_training_frameworks():
     "relative_path",
     [
         "app.py",
-        ".github/workflows/ci.yml",
-        "docs/deployment.md",
-        "models/asl_mediapipe_mlp_model.h5",
-        "assets/asl_alphabet.png",
+        "README.md",
+        "training/requirements.txt",
+        "asl_mediapipe_mlp_model.h5",
+        "ASL.png",
     ],
 )
 def test_deployment_files_present(relative_path):
@@ -71,7 +74,9 @@ def test_deployment_files_present(relative_path):
 def test_streamlit_media_middleware_sends_headers_before_body(content_type, accept_encoding):
     import asyncio
 
-    from streamlit.web.server.starlette.starlette_gzip_middleware import SelectiveGZipMiddleware
+    from streamlit.web.server.starlette.starlette_gzip_middleware import (
+        SelectiveGZipMiddleware,
+    )
 
     body = b"media-payload" * 100
     messages = []
