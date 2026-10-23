@@ -32,6 +32,8 @@ from asl_model import ASLModel
 
 LOGGER = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "asl_mediapipe_mlp_model.h5"
+REFERENCE_IMAGE_PATH = BASE_DIR / "assets" / "ASL.png"
 CLASSES = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + ["del", "space"]
 MAX_SENTENCE_LENGTH = 2000
 MAX_FRAME_WIDTH = 480
@@ -55,7 +57,7 @@ def get_ice_servers():
 def load_model():
     # Shared across reruns/sessions. No optimizer state or per-frame predict workers.
     cv2.setNumThreads(1)
-    model = ASLModel(BASE_DIR / "asl_mediapipe_mlp_model.h5")
+    model = ASLModel(MODEL_PATH)
     model(np.zeros((1, 63), dtype=np.float32))
     return model, threading.Lock()
 
@@ -262,8 +264,8 @@ def main():
 
     with col2:
         st.subheader("ASL Reference")
-        if (BASE_DIR / "ASL.png").exists():
-            st.image(str(BASE_DIR / "ASL.png"), caption="ASL Alphabet", width="stretch")
+        if REFERENCE_IMAGE_PATH.exists():
+            st.image(str(REFERENCE_IMAGE_PATH), caption="ASL Alphabet", width="stretch")
         else:
             st.warning("ASL.png not found.")
 

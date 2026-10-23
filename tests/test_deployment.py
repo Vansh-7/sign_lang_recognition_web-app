@@ -2,20 +2,21 @@
 
 import json
 
+import cv2
 import pytest
 import tomllib
 
 from app import BASE_DIR as PROJECT_ROOT
+from app import MODEL_PATH, REFERENCE_IMAGE_PATH
 from asl_model import ASLModel
-
-MODEL_PATH = PROJECT_ROOT / "asl_mediapipe_mlp_model.h5"
-REFERENCE_IMAGE_PATH = PROJECT_ROOT / "ASL.png"
 
 
 def test_runtime_assets_resolve_outside_repository(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     assert MODEL_PATH.is_absolute() and MODEL_PATH.is_file()
     assert REFERENCE_IMAGE_PATH.is_absolute() and REFERENCE_IMAGE_PATH.is_file()
+    image = cv2.imread(str(REFERENCE_IMAGE_PATH))
+    assert image is not None and image.shape[0] > 0 and image.shape[1] > 0
     assert len(ASLModel(MODEL_PATH).layers) == 3
 
 
@@ -30,7 +31,8 @@ def test_streamlit_configuration_and_secret_template():
     assert not (PROJECT_ROOT / ".streamlit/secrets.toml").exists()
 
 
-def test_notebook_paths_and_code_are_valid():
+@pytest.mark.parametrize("working_folder", [".", "training"])
+def test_notebook_paths_and_code_are_valid(monkeypatch, working_folder):
     notebook = json.loads(
         (PROJECT_ROOT / "training/asl_mediapipe_final.ipynb").read_text(encoding="utf-8")
     )
@@ -41,6 +43,16 @@ def test_notebook_paths_and_code_are_valid():
     source = "".join("".join(cell["source"]) for cell in notebook["cells"])
     assert "C:\\Users\\" not in source
     assert "ASL_TRAINING_IMAGES" in source
+    monkeypatch.chdir(PROJECT_ROOT / working_folder)
+    namespace = {}
+    exec("".join(notebook["cells"][0]["source"]), namespace)
+    assert namespace["MODEL_PATH"] == MODEL_PATH
+    assert namespace["REFERENCE_PATH"] == REFERENCE_IMAGE_PATH
+    assert (
+        namespace["DATASET_PATH"]
+        == PROJECT_ROOT / "training" / "asl_mediapipe_keypoints_dataset.csv"
+    )
+    assert namespace["DATASET_PATH"].is_file()
 
 
 def test_runtime_requirements_exclude_training_frameworks():
@@ -61,8 +73,8 @@ def test_runtime_requirements_exclude_training_frameworks():
         "app.py",
         "README.md",
         "training/requirements.txt",
-        "asl_mediapipe_mlp_model.h5",
-        "ASL.png",
+        "models/asl_mediapipe_mlp_model.h5",
+        "assets/ASL.png",
     ],
 )
 def test_deployment_files_present(relative_path):
