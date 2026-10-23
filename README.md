@@ -75,30 +75,32 @@ inactive during inference. Model weights are cached across sessions. Sliders cou
 ## Project Structure
 
 ```text
-sign_lang_recognition_web-app/
-├── .github/workflows/tests.yml
-├── .streamlit/
-│   ├── config.toml
-│   └── secrets.toml.example
-├── assets/
-│   ├── ASL.png
-│   └── app-screenshot.png
-├── models/
-│   └── asl_mediapipe_mlp_model.h5
-├── training/
-│   ├── asl_mediapipe_final.ipynb
-│   ├── asl_mediapipe_keypoints_dataset.csv
-│   └── requirements.txt
-├── tests/
-│   ├── conftest.py
-│   ├── test_app.py
-│   └── test_deployment.py
-├── app.py
-├── asl_model.py
-├── requirements.txt
-├── packages.txt
-├── .gitignore
-└── README.md
+sign_lang_recognition_web-app/                   # Project root
+├── .github/                                     # GitHub automation
+│   └── workflows/                               # Automated workflow definitions
+│       └── tests.yml                            # Ubuntu / Python 3.11 CI tests
+├── .streamlit/                                  # Streamlit configuration
+│   ├── config.toml                              # Server, display, and telemetry settings
+│   └── secrets.toml.example                     # Template for Twilio TURN credentials
+├── assets/                                      # Images used by the app and README
+│   ├── ASL.png                                  # ASL alphabet reference shown in the app
+│   └── app-screenshot.png                       # Live-app screenshot used in the README
+├── models/                                      # Saved model used for inference
+│   └── asl_mediapipe_mlp_model.h5               # Trained MLP architecture and weights
+├── training/                                    # Training workflow, data, and dependencies
+│   ├── asl_mediapipe_final.ipynb                # Landmark extraction, training, and evaluation
+│   ├── asl_mediapipe_keypoints_dataset.csv      # Hand landmark features and class labels
+│   └── requirements.txt                         # Dependencies for the training environment
+├── tests/                                       # Automated app and deployment checks
+│   ├── conftest.py                              # Shared test setup and network restrictions
+│   ├── test_app.py                              # Video processing, inference, and UI tests
+│   └── test_deployment.py                       # Asset, notebook, config, and media checks
+├── app.py                                       # Streamlit entry point, webcam, and sentence tools
+├── asl_model.py                                 # Loads H5 weights and runs NumPy MLP inference
+├── requirements.txt                             # Python dependencies for the running app
+├── packages.txt                                 # Native Linux libraries needed by OpenCV
+├── .gitignore                                   # Excludes secrets, environments, and generated files
+└── README.md                                    # Project overview, setup, and usage documentation
 ```
 
 `app.py` remains the Streamlit entry point. Model and image paths resolve relative
