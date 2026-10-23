@@ -1,6 +1,4 @@
 import asyncio
-from pathlib import Path
-import sys
 import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -8,17 +6,18 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import app
-from asl_model import ASLModel
+from asl_recognition import processor as video
+from asl_recognition import ui
+from asl_recognition.config import MAX_SENTENCE_LENGTH, MODEL_PATH, PROJECT_ROOT
+from asl_recognition.model import ASLModel
 
 
 @pytest.fixture
 def processor(monkeypatch):
     tracker = Mock()
     tracker.process.return_value = SimpleNamespace(multi_hand_landmarks=None)
-    monkeypatch.setattr(app.mp.solutions.hands, "Hands", Mock(return_value=tracker))
-    instance = app.ASLProcessor(Mock(), threading.Lock())
+    monkeypatch.setattr(video.mp.solutions.hands, "Hands", Mock(return_value=tracker))
+    instance = video.ASLProcessor(Mock(), threading.Lock())
     yield instance, tracker
     instance.on_ended()
 
@@ -26,8 +25,8 @@ def processor(monkeypatch):
 def test_video_work_is_throttled_and_downscaled(processor, monkeypatch):
     instance, tracker = processor
     clock = iter([0, 0.02, 0.05, 0.11])
-    monkeypatch.setattr(app.time, "monotonic", lambda: next(clock))
-    frame = app.av.VideoFrame.from_ndarray(np.zeros((720, 1280, 3), np.uint8), format="bgr24")
+    monkeypatch.setattr(video.time, "monotonic", lambda: next(clock))
+    frame = video.av.VideoFrame.from_ndarray(np.zeros((720, 1280, 3), np.uint8), format="bgr24")
     for _ in range(4):
         output = instance.recv(frame)
         assert output.width == 480
@@ -39,7 +38,7 @@ def test_video_work_is_throttled_and_downscaled(processor, monkeypatch):
 
 def test_stop_releases_tracker_once_and_rejects_more_work(processor):
     instance, tracker = processor
-    frame = app.av.VideoFrame.from_ndarray(np.zeros((360, 480, 3), np.uint8), format="bgr24")
+    frame = video.av.VideoFrame.from_ndarray(np.zeros((360, 480, 3), np.uint8), format="bgr24")
     instance.recv(frame)
     instance.on_ended()
     instance.on_ended()
@@ -76,10 +75,12 @@ def test_sessions_do_not_share_trackers_or_text(monkeypatch):
     first_tracker, second_tracker = Mock(), Mock()
     for tracker in (first_tracker, second_tracker):
         tracker.process.return_value = SimpleNamespace(multi_hand_landmarks=None)
-    monkeypatch.setattr(app.mp.solutions.hands, "Hands", Mock(side_effect=[first_tracker, second_tracker]))
-    first = app.ASLProcessor(Mock(), threading.Lock(), "first")
-    second = app.ASLProcessor(Mock(), threading.Lock(), "second")
-    frame = app.av.VideoFrame.from_ndarray(np.zeros((100, 100, 3), np.uint8), format="bgr24")
+    monkeypatch.setattr(
+        video.mp.solutions.hands, "Hands", Mock(side_effect=[first_tracker, second_tracker])
+    )
+    first = video.ASLProcessor(Mock(), threading.Lock(), "first")
+    second = video.ASLProcessor(Mock(), threading.Lock(), "second")
+    frame = video.av.VideoFrame.from_ndarray(np.zeros((100, 100, 3), np.uint8), format="bgr24")
     first.recv(frame)
     second.recv(frame)
     first.on_ended()
@@ -91,11 +92,11 @@ def test_sessions_do_not_share_trackers_or_text(monkeypatch):
 def test_sentence_is_bounded(processor):
     instance, _ = processor
     instance.set_sentence("A" * 10000)
-    assert len(instance.snapshot()[0]) == app.MAX_SENTENCE_LENGTH
+    assert len(instance.snapshot()[0]) == MAX_SENTENCE_LENGTH
 
 
 def test_saved_model_returns_finite_class_probabilities():
-    model = ASLModel(app.BASE_DIR / "asl_mediapipe_mlp_model.h5")
+    model = ASLModel(MODEL_PATH)
     output = model(np.zeros((1, 63), dtype=np.float32))
     assert output.shape == (1, 28)
     assert np.isfinite(output).all()
@@ -103,21 +104,23 @@ def test_saved_model_returns_finite_class_probabilities():
     with pytest.raises(ValueError):
         model(np.zeros((1, 62)))
 
+
 def test_sentence_tools_sync_edit_and_clear(monkeypatch):
     from streamlit.testing.v1 import AppTest
-    processor = app.ASLProcessor(Mock(), threading.Lock(), "A")
+
+    processor = video.ASLProcessor(Mock(), threading.Lock(), "A")
     context = SimpleNamespace(video_processor=processor)
-    monkeypatch.setattr(app, "webrtc_streamer", lambda **kwargs: context)
-    monkeypatch.setattr(app, "get_ice_servers", lambda: [])
-    ui = AppTest.from_string("import app; app.main()", default_timeout=30).run()
-    assert not ui.exception
-    assert ui.text_area[0].value == "A"
-    ui.text_area[0].input("EDITED").run()
-    assert not ui.exception
+    monkeypatch.setattr(ui, "webrtc_streamer", lambda **kwargs: context)
+    monkeypatch.setattr(ui, "get_ice_servers", lambda: [])
+    page = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    assert not page.exception
+    assert page.text_area[0].value == "A"
+    page.text_area[0].input("EDITED").run()
+    assert not page.exception
     assert processor.snapshot()[0] == "EDITED"
     processor.set_sentence("LIVE")
-    ui.run()
-    assert ui.text_area[0].value == "LIVE"
-    next(button for button in ui.button if "Clear" in button.label).click().run()
-    assert not ui.exception
-    assert ui.text_area[0].value == processor.snapshot()[0] == ""
+    page.run()
+    assert page.text_area[0].value == "LIVE"
+    next(button for button in page.button if "Clear" in button.label).click().run()
+    assert not page.exception
+    assert page.text_area[0].value == processor.snapshot()[0] == ""

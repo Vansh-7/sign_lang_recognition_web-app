@@ -1,9 +1,13 @@
-streamlit>=1.40,<2
-streamlit-webrtc>=0.69.5,<1
+# Python 3.11. Keep TensorFlow/Keras in training/requirements.txt only.
+streamlit==1.60.0
+streamlit-webrtc==0.79.0
 opencv-contrib-python==4.11.0.86
 mediapipe==0.10.14
-h5py>=3.10,<4
+h5py==3.13.0
 numpy==1.26.4
-av
-gTTS>=2.5,<3
-twilio
+av==17.1.0
+gTTS==2.5.4
+twilio==9.12.0
+# MediaPipe imports JAX; keep it compatible with NumPy 1.26.
+jax==0.7.1
+jaxlib==0.7.1

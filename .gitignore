@@ -1,5 +1,15 @@
 __pycache__/
 .pytest_cache/
+.ruff_cache/
 *.py[cod]
 .venv/
+venv/
+.env
+.env.*
+!.env.example
 .streamlit/secrets.toml
+.ipynb_checkpoints/
+data/raw/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,4 +1,5 @@
 """Load the repository's dense ASL model without a TensorFlow runtime."""
+
 import json
 
 import h5py
@@ -25,11 +26,15 @@ class ASLModel:
 
                 def read_weight(name, obj):
                     if isinstance(obj, h5py.Dataset):
-                        weights[name.rsplit("/", 1)[-1].split(":")[0]] = np.asarray(obj, dtype=np.float32)
+                        weights[name.rsplit("/", 1)[-1].split(":")[0]] = np.asarray(
+                            obj, dtype=np.float32
+                        )
 
                 group.visititems(read_weight)
                 kernel, bias = weights["kernel"], weights["bias"]
-                if kernel.shape != (input_size, options["units"]) or bias.shape != (options["units"],):
+                if kernel.shape != (input_size, options["units"]) or bias.shape != (
+                    options["units"],
+                ):
                     raise ValueError("Invalid ASL model weight dimensions")
                 kernel.flags.writeable = bias.flags.writeable = False
                 self.layers.append((kernel, bias, options["activation"]))
